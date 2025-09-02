@@ -19,6 +19,8 @@ package org.springframework.pulsar.reactive.core;
 import java.util.Collections;
 import java.util.List;
 
+import org.apache.commons.lang3.StringUtils;
+import org.apache.pulsar.client.api.DeadLetterPolicy;
 import org.apache.pulsar.client.api.Schema;
 import org.apache.pulsar.reactive.client.api.ReactiveMessageConsumer;
 import org.apache.pulsar.reactive.client.api.ReactiveMessageConsumerBuilder;
@@ -85,6 +87,7 @@ public class DefaultReactivePulsarConsumerFactory<T> implements ReactivePulsarCo
 			customizers.forEach((c) -> c.customize(consumerBuilder));
 		}
 		this.ensureTopicNamesFullyQualified(consumerBuilder);
+		this.ensureDeadLetterTopicNamesFullyQualified(consumerBuilder);
 		return consumerBuilder.build();
 	}
 
@@ -97,6 +100,25 @@ public class DefaultReactivePulsarConsumerFactory<T> implements ReactivePulsarCo
 		if (!CollectionUtils.isEmpty(topics)) {
 			var fullyQualifiedTopics = topics.stream().map(this.topicBuilder::getFullyQualifiedNameForTopic).toList();
 			mutableSpec.setTopicNames(fullyQualifiedTopics);
+		}
+	}
+
+	protected void ensureDeadLetterTopicNamesFullyQualified(ReactiveMessageConsumerBuilder<T> consumerBuilder) {
+		if (this.topicBuilder == null) {
+			return;
+		}
+		var mutableSpec = consumerBuilder.getMutableSpec();
+		DeadLetterPolicy deadLetterPolicy = mutableSpec.getDeadLetterPolicy();
+		if (deadLetterPolicy == null) {
+			return;
+		}
+		var deadLetterTopic = deadLetterPolicy.getDeadLetterTopic();
+		if (StringUtils.isNoneBlank(deadLetterTopic)) {
+			deadLetterPolicy.setDeadLetterTopic(this.topicBuilder.getFullyQualifiedNameForTopic(deadLetterTopic));
+		}
+		var retryLetterTopic = deadLetterPolicy.getRetryLetterTopic();
+		if (StringUtils.isNoneBlank(retryLetterTopic)) {
+			deadLetterPolicy.setRetryLetterTopic(this.topicBuilder.getFullyQualifiedNameForTopic(retryLetterTopic));
 		}
 	}
 
